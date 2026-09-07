@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        Open Page World
+    </title>
+
+    <style>
+            @font-face {
+        font-family: 'Hankyoreh Gyeol';
+        src: url('font/hangyoreh.otf');
+        font-weight: 400;
+        font-display: swap;
+        }
+        
+        :root {
+        /* 색 */
+        --panel-bg: #1a1a1a; 
+        --border: #676767;
+        --text: #ffffff;
+        --text-dim: rgba(255,255,255,0.5);
+        --dot-red: #ff5f57;
+        --dot-yellow: #febc2e;
+        --bg-gradient: linear-gradient(0deg, var(--panel-bg) 0%, var(--panel-bg) 100%), #FFF;
+        
+        /* 단위 */
+        --radius-window: 8px;
+        --radius-btn: 38px;
+        --btn-h: 48px;
+        --titlebar-h: 32px;
+        --padding-window: 15px;
+        --margin: 32px;
+        --letter-spacing: -0.54px;
+        }
+
+        /* -------- */
+        /* -------- */
+        /* -------- */
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+        font-family: 'Hankyoreh Gyeol', serif;
+        background: #000;
+        color: var(--text);
+        letter-spacing: var(--letter-spacing);
+        overflow: hidden;
+        }        
+
+        #topbar {
+        position: fixed;
+        top: var(--margin);
+        left: 50%;
+        transform: translateX(-50%);
+        /* flex 레이아웃을 적용 */
+        display: flex;
+        align-items: flex-start; /* 버튼을 상단에 고정 */
+        gap: 9px;
+        z-index: 1000; 
+        }
+
+        /* -------- */
+        /* -------- */
+        /* -------- */
+
+        #url-input {
+            height: var(--btn-h);
+            width: 394px;
+            padding: var(--padding-window);
+            font-size: 18px;
+            font-family: 'Hankyoreh Gyeol', serif;
+            color: var(--text);
+            background: var(--bg-gradient);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-window);
+            outline: none; /* 포커스 시 외곽선 제거 이거 없으면 드래그 하는 것처럼... 파란색... */
+        }
+
+        #url-input::placeholder { 
+            color: var(--text-dim); 
+        }
+        #url-input:hover::placeholder,
+        #url-input:focus::placeholder { 
+            color: var(--text); 
+        }
+
+        #btn-add {
+            width: var(--btn-h);
+            height: var(--btn-h);
+            padding: 14px;
+            border-radius: var(--radius-btn);
+            background: var(--bg-gradient);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 24px;
+            cursor: pointer; /* 버튼에 마우스를 올리면 커서가 포인터로 바뀌도록 설정 */
+            display: flex;
+        }
+
+        /* -------- */
+        /* -------- */
+        /* -------- */
+
+        #canvas { 
+            position: relative; width: 100vw; height: 100vh; /* 뷰포트 전체를 차지하도록 설정 */
+        }
+
+        /* -------- */
+        /* -------- */
+        /* -------- */
+
+        .window {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            width: 316px;
+            height: 257px;
+            min-width: 172px;
+            min-height: 104px;
+
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-window);
+
+            resize: both; /* 크기조절 핸들 */
+            overflow: hidden;
+        }   
+
+        .window-titlebar {
+            height: var(--titlebar-h);
+            flex-shrink: 0; /* 타이틀 바는 크기조절에 영향을 받지 않음 */
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 9px; /* 상하, 좌우 자주 헷갈리니까 외우자 */
+            border-bottom: 1px solid var(--border);
+            cursor: move;
+            user-select: none; /* 텍스트 선택을 방지함 */
+        }
+
+        .dot { 
+            width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+        }
+        .dot-red    { 
+            background: var(--dot-red);
+        }
+        .dot-yellow { 
+            background: var(--dot-yellow); 
+        }
+
+        .hostname { 
+            flex: 1; /* 남은 공간을 차지하도록 설정 */
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis; /* 긴 텍스트를 ...로 표시 */
+            white-space: nowrap; /* 텍스트를 한 줄로 유지 */
+        }
+
+        .window-body {
+            flex: 1; /* 남은 공간을 차지하도록 설정 */
+            min-height: 0; /* iframe으로 들고오면 내용이 안줄어들 수 있어서 강제로 설정? */
+        }
+
+        .window-body iframe {
+            width: 100%; height: 100%; border: none; 
+        } /* iframe이 가진 기본 테두리 제거하고 꽉채우기 */
+        .dragging iframe { 
+            pointer-events: none; 
+        } /* 드래그 중에는 iframe 클릭 방지 */
+
+        #minimized-dock {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 4px;
+            z-index: 900;
+        }
+
+        .minimized-strip {
+            width: 184px;
+            height: var(--titlebar-h);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 9px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-window) var(--radius-window) 0 0;
+            cursor: pointer;
+        }
+
+        .hostname-kr { 
+            flex: 1;
+            font-size: 12px;
+            text-align: right;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #window-intro1 {
+            left: 80px;
+            top: 120px; 
+            width: 360px;
+            height: 200px;
+        }
+
+        #window-intro2 { 
+            left: 480px;
+            top: 380px; 
+            width: 360px;
+            height: 140px;
+        }
+
+        .window-body.text {
+            padding: var(--padding-window);
+            overflow-y: auto; /* 내용이 많을 경우 스크롤 가능 */
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--text);
+        }
+
+        .window-hyperlink {
+            color: var(--text);
+            text-decoration: underline;
+            text-decoration-color: var(--text);
+        }
+
+        .en12 { 
+            color: var(--text-dim);
+            font-size: 12px; 
+            text-align: right;
+            letter-spacing: -0.28px;
+        }
+
+        .window-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 10px;
+        }
+
+        .window-footer-right {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 무한 캔버스 -->
+     <div id="canvas">
+     </div>
+
+    <!-- 좌측 상단 설명카드 버튼 얘도 일단 제외 ㅋㅋ 미치겠당
+     <div id="topleft">
+        <button id="btn-whatisthis">
+            What is this?
+        </button>
+        <div id="panel-whatisthis" hidden>
+            <p class="en14">Anyone can open the page and show a link they like.
+                Of course, anyone can also close the page.
+                Please note that the history of opening and closing pages is permanently recorded in the recent log.
+                Press Cmd+(+/-) to Zoom in-out or Pinch
+            </p>
+            <p class="ko12">누구나 좋아하는 링크를 창으로 열어서 보여줄 수 있어요.
+                물론 누구나 창을 닫을 수도 있습니다.
+                페이지를 열고 닫은 기록은 최근 로그에 영구적으로 기록되니 유의해주세요.
+                Cmd+(+/-) 혹은 드래그 하여 확대 축소 할 수 있습니다.
+            </p>
+            <a href="https://instagram.com/@eeanzn" target="_blank" class="underline">
+                @eeanzn
+            </a>
+            <span>
+                by HyunJun Lee
+            </span>
+        </div>
+     </div> -->
+
+     <!-- 중앙 상단 인풋필드, 추가 버튼, 로그 Recent -->
+      <div id="topbar">
+        <input id="url-input" type="text" placeholder="Type the link what you want...">
+        <button id="btn-add" aria-label="Add">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 0V20M0 10L20 10" stroke="white"/>
+            </svg>
+        </button>
+        <!-- 복잡하니까 잠깐 제외..
+        <div id="panel-recentlog">
+            <h2 class="en18">
+                Recent
+            </h2>
+            <ul id="list-log">
+            </ul>
+            <a href="#" id="btn-more" class="underline">
+                more...
+            </a>
+        </div> -->
+        </div>
+
+
+        <div id="window-intro1" class="window intro">
+            <div class="window-titlebar">
+                <div class="dot dot-yellow"></div>
+                <span class="hostname-kr">제가 이걸 왜 만들었냐면요...</span>
+            </div>
+            <div class="window-body text">
+                <p>저는 웹은 서로가 좋아하는 것을 빠르고 효과적으로 공유할 수 있는 도구라는 점이 정말 마음에 듭니다.
+                    어렸을때 초등학교에 하나씩 있던 컴퓨터실에서 플래시 게임을 하거나, 재미있는 사이트를 찾아서
+                    화면에 띄워놓고 서로 오고가며 보는 경험이 떠올라요.
+                    이 웹은 그런 면에서 비슷합니다.
+                </p>
+                <div class="window-footer">
+                    <a class="window-hyperlink" href="https://www.instagram.com/eeanzn" target="_blank">
+                        @eeanzn
+                    </a>
+                    <div class="window-footer-right">
+                        <span class="en12">
+                            by HyunJun Lee
+                        </span>
+                        <span class="en12">
+                            2026. 09. 06.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="window-intro2" class="window intro">
+            <div class="window-titlebar">
+                <div class="dot dot-yellow"></div>
+                <span class="hostname-kr">이건 그래서 뭐냐면요...</span>
+            </div>
+            <div class="window-body text">
+                <p>누구나 좋아하는 링크를 창으로 열어서 보여줄 수 있어요. 물론 누구나 창을 닫을 수도 있어요.
+                </p>
+                <div class="window-footer">
+                    <a class="window-hyperlink" href="https://www.instagram.com/eeanzn" target="_blank">
+                        @eeanzn
+                    </a>
+                    <div class="window-footer-right">
+                        <span class="en12">
+                            by HyunJun Lee
+                        </span>
+                        <span class="en12">
+                            2026. 09. 06.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        
+        
+
+      <!-- 최소화 창 자리 -->
+      <div id="minimized-dock">
+    
+      </div>
+    
+    <script src="script.js"></script>
+
+</body>
+</html>
